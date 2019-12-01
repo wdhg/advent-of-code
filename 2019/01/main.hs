@@ -1,5 +1,3 @@
-import System.IO
-
 getMasses :: IO [Int]
 getMasses
   = do
