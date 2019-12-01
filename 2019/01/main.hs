@@ -4,24 +4,24 @@ getMasses
     file <- readFile "input"
     return $ map read (lines file) :: IO [Int]
 
-mapAndSum :: (Int -> Int) -> IO Int
-mapAndSum f
+calculateFuels :: [Int] -> [Int]
+calculateFuels
+  = filter (>0) . map (\x -> x `div` 3 - 2)
+
+calculateAllFuels :: [Int] -> [Int] 
+calculateAllFuels
+  = map sum . takeWhile (not . null) . tail . iterate calculateFuels
+
+perform :: ([Int] -> [Int]) -> IO Int
+perform f
   = do
     masses <- getMasses
-    return $ sum $ map f masses
-
-calculateFuel :: Int -> Int
-calculateFuel mass
-  = mass `div` 3 - 2
+    return $ sum $ f masses
 
 part1 :: IO Int
 part1
-  = mapAndSum calculateFuel
+  = perform calculateFuels
 
 part2 :: IO Int
 part2
-  = mapAndSum calculateTotalFuel
-      where
-        calculateTotalFuel :: Int -> Int
-        calculateTotalFuel
-          = sum . tail . takeWhile (>0) . iterate calculateFuel
+  = perform calculateAllFuels
