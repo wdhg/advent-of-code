@@ -23,5 +23,5 @@ part2
   = mapAndSum calculateTotalFuel
       where
         calculateTotalFuel :: Int -> Int
-        calculateTotalFuel mass
-          = sum $ tail $ takeWhile (>0) $ iterate calculateFuel mass
+        calculateTotalFuel
+          = sum . tail . takeWhile (>0) . iterate calculateFuel
