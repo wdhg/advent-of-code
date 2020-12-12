@@ -1,0 +1,91 @@
+import Control.Monad.State
+
+data Direction
+  = N | E | S | W | L | R | F deriving (Enum, Show)
+
+data Instruction
+  = Instruction Direction Int
+
+data Ship
+  = Ship 
+    { direction :: Direction
+    , position  :: (Int, Int)
+    , waypoint  :: (Int, Int)
+    }
+
+readDirection :: Char -> Direction
+readDirection 'N' = N
+readDirection 'S' = S
+readDirection 'E' = E
+readDirection 'W' = W
+readDirection 'L' = L
+readDirection 'R' = R
+readDirection 'F' = F
+
+readInstruction :: String -> Instruction
+readInstruction (d:n) = Instruction (readDirection d) (read n)
+
+getIntstructions :: IO [Instruction]
+getIntstructions
+  = map readInstruction . lines <$> readFile "input"
+
+start :: Ship
+start
+  = Ship
+    { direction = E
+    , position  = (0,0)
+    , waypoint  = (10, 1)
+    }
+
+move :: [Instruction] -> Ship
+move instructions
+  = execState (move' instructions) start
+
+move' :: [Instruction] -> State Ship ()
+move' = foldr ((*>) . follow) (return ())
+
+getDirection :: State Ship Direction
+getDirection = state $ \s -> (direction s, s)
+
+setDirection :: Direction -> State Ship ()
+setDirection dir = state $ \s -> ((), s {direction = dir})
+
+follow :: Instruction -> State Ship ()
+follow (Instruction dir amount)
+  = do
+    dir' <- getDirection
+    case dir of
+      L -> setDirection $ iterate left dir' !! (amount `div` 90)
+      R -> setDirection $ iterate right dir' !! (amount `div` 90)
+      F -> follow (Instruction dir' amount)
+      _ -> moveVector $ getVector dir amount
+
+left :: Direction -> Direction
+left = right . right . right
+
+right :: Direction -> Direction
+right W = N
+right d = succ d
+
+getVector :: Direction -> Int -> (Int, Int)
+getVector N dist = (0,dist)
+getVector S dist = (0,-dist)
+getVector E dist = (dist,0)
+getVector W dist = (-dist,0)
+
+moveVector :: (Int, Int) -> State Ship ()
+moveVector vec
+  = state $ \s -> ((), s {direction = direction s <+> vec})
+
+(<*>) :: (Int, Int) -> (Int, Int) -> (Int, Int)
+(x1,y1) <*> (x2,y2) = (x1 + x2, y1 + y2)
+
+manhattan :: (Int, Int) -> Int
+manhattan (x, y) = abs x + abs y
+
+main :: IO ()
+main
+  = do
+    instructions <- getIntstructions
+    let ship = move instructions
+    print $ manhattan $ position ship
