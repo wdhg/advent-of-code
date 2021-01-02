@@ -1,7 +1,9 @@
+package day01
+
 import scala.io.Source.fromFile
 
-object Day01 extends App {
-  val content = fromFile("inputs/day01").toList
+object Main extends App {
+  val content = fromFile("src/main/scala/day01/input").toList
 
   def nextFloor(floor: Int, c: Char): Int = floor + (if (c == '(') 1 else -1)
 
