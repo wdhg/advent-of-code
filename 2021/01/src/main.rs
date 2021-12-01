@@ -21,10 +21,7 @@ fn main() {
     increases = 0;
 
     for i in 0..depths.len() - 3 {
-        let curr_sum = depths[i] + depths[i + 1] + depths[i + 2];
-        let next_sum = depths[i + 1] + depths[i + 2] + depths[i + 3];
-
-        if curr_sum < next_sum {
+        if depths[i] < depths[i + 3] {
             increases += 1;
         }
     }
