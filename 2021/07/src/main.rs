@@ -19,28 +19,14 @@ fn summation(n: u64) -> u64 {
     n * (n + 1) / 2
 }
 
-fn calculate_cost(target: u64, positions: &Vec<u64>) -> u64 {
+fn calculate_cost(target: u64, positions: &Vec<u64>, cost_func: fn(u64) -> u64) -> u64 {
     let mut cost = 0;
 
     for &x in positions {
         if x < target {
-            cost += target - x;
+            cost += cost_func(target - x);
         } else {
-            cost += x - target;
-        }
-    }
-
-    cost
-}
-
-fn calculate_cost_2(target: u64, positions: &Vec<u64>) -> u64 {
-    let mut cost = 0;
-
-    for &x in positions {
-        if x < target {
-            cost += summation(target - x);
-        } else {
-            cost += summation(x - target);
+            cost += cost_func(x - target);
         }
     }
 
@@ -53,8 +39,8 @@ fn main() {
     let mut minimum_2 = u64::MAX;
 
     for i in 0..*positions.iter().max().unwrap() {
-        minimum = min(minimum, calculate_cost(i, &positions));
-        minimum_2 = min(minimum_2, calculate_cost_2(i, &positions));
+        minimum = min(minimum, calculate_cost(i, &positions, |x| x));
+        minimum_2 = min(minimum_2, calculate_cost(i, &positions, summation));
     }
 
     println!("Minimum: {}", minimum);
