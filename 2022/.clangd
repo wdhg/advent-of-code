@@ -1,0 +1,4 @@
+CompileFlags:
+  Add: [-Wall, -Wextra, -pedantic, -std=c89]
+  Compiler: clang
+
