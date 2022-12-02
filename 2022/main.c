@@ -134,12 +134,113 @@ void day1() {
   printf("\n");
 }
 
+/*** day 2 ***/
+
+#define RPS_FILE "inputs/rock-paper-scissors"
+#define RPS_PAIRS_LEN 2500
+
+/* 0 = ROCK, 1 = PAPER, 2 = SCISSORS */
+enum rps { ROCK, PAPER, SCISSORS };
+/* 0 = WIN , 1 = DRAW, 2 = LOSS */
+enum rps_outcome { WIN, DRAW, LOSS }; /* WIN meaning we win */
+
+struct rps_pair {
+  char them;
+  char us;
+};
+
+/* first index is them, second index is us */
+enum rps_outcome rps_move_move_outcome[3][3] = {
+    {DRAW, WIN, LOSS}, {LOSS, DRAW, WIN}, {WIN, LOSS, DRAW}};
+
+/* first index is their move, second index is the required outcome */
+enum rps rps_move_outcome_move[3][3] = {
+    {PAPER, ROCK, SCISSORS}, {SCISSORS, PAPER, ROCK}, {ROCK, SCISSORS, PAPER}};
+
+int rps_scores_move[3] = {1, 2, 3};
+int rps_scores_outcome[3] = {6, 3, 0};
+
+enum rps rps_from_char(char c) {
+  switch (c) {
+  case 'A':
+  case 'X':
+    return ROCK;
+  case 'B':
+  case 'Y':
+    return PAPER;
+  case 'C':
+  case 'Z':
+    return SCISSORS;
+  default:
+    assert(0);
+  }
+}
+
+enum rps_outcome rps_outcome_from_char(char c) {
+  switch (c) {
+  case 'X':
+    return LOSS;
+  case 'Y':
+    return DRAW;
+  case 'Z':
+    return WIN;
+  default:
+    assert(0);
+  }
+}
+
+size_t parse_rps_pair(char *s, size_t len, void **buffer) {
+  struct rps_pair *pairs = (struct rps_pair *)*buffer;
+
+  assert(len == 4); /* "A X\n" */
+
+  pairs->them = s[0];
+  pairs->us = s[2];
+  *buffer = (void *)(pairs + 1);
+
+  (void)len; /* unused */
+
+  return 1;
+}
+
+void day2() {
+  struct rps_pair *pairs = calloc(RPS_PAIRS_LEN, sizeof(struct rps_pair));
+  size_t pairs_len = parse_file(RPS_FILE, parse_rps_pair, pairs);
+  int total_score_1 = 0;
+  int total_score_2 = 0;
+  int i;
+
+  assert(pairs_len == RPS_PAIRS_LEN);
+
+  for (i = 0; i < RPS_PAIRS_LEN; i++) {
+    struct rps_pair pair = pairs[i];
+    enum rps them = rps_from_char(pair.them);
+    enum rps us;
+    enum rps_outcome outcome;
+
+    /* strategy 1: XYZ means move */
+    us = rps_from_char(pair.us);
+    outcome = rps_move_move_outcome[them][us];
+    total_score_1 += rps_scores_move[us] + rps_scores_outcome[outcome];
+
+    /* strategy 2: XYZ means outcome */
+    outcome = rps_outcome_from_char(pair.us);
+    us = rps_move_outcome_move[them][us];
+    total_score_2 += rps_scores_move[us] + rps_scores_outcome[outcome];
+  }
+
+  printf("=== Day 2 ===\n");
+  printf("Total score: %d\n", total_score_1);
+  printf("Total score: %d\n", total_score_2);
+}
+
 /*** main ***/
 
 int main() {
   printf("Advent of Code 2022!\n\n");
 
   day1();
+  day2();
 
   return 0;
 }
