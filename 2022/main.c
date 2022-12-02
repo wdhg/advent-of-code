@@ -118,8 +118,6 @@ void day1() {
   int max_calories[3] = {0};
   int *max_calories_minimum;
 
-  printf("=== Day 1 ===\n");
-
   calories = get_calories(&calories_size);
 
   for (i = 0; i < calories_size; i++) {
@@ -128,10 +126,10 @@ void day1() {
     *max_calories_minimum = max(*max_calories_minimum, total_calories);
   }
 
+  printf("\n=== Day 1 ===\n");
   printf("Highest calories: %d, %d, %d\n", max_calories[0], max_calories[1],
          max_calories[2]);
   printf("Top 3 sum is: %d\n", sum(max_calories, 3));
-  printf("\n");
 }
 
 /*** day 2 ***/
@@ -229,7 +227,7 @@ void day2() {
     total_score_2 += rps_scores_move[us] + rps_scores_outcome[outcome];
   }
 
-  printf("=== Day 2 ===\n");
+  printf("\n=== Day 2 ===\n");
   printf("Total score: %d\n", total_score_1);
   printf("Total score: %d\n", total_score_2);
 }
@@ -237,7 +235,7 @@ void day2() {
 /*** main ***/
 
 int main() {
-  printf("Advent of Code 2022!\n\n");
+  printf("Advent of Code 2022!\n");
 
   day1();
   day2();
