@@ -54,6 +54,20 @@ int *minimum_or_maximum(int *vals, size_t len, int is_min) {
 int *maximum(int *vals, size_t len) { return minimum_or_maximum(vals, len, 0); }
 int *minimum(int *vals, size_t len) { return minimum_or_maximum(vals, len, 1); }
 
+/*** bits/binary ***/
+
+int get_set_bit(uint64_t bits) {
+  int i;
+
+  for (i = 0; i < 64; i++) {
+    if (bits >> i == 1) {
+      return i;
+    }
+  }
+
+  assert(0);
+}
+
 /*** file ***/
 
 /* generic line-by-line file parser */
@@ -232,6 +246,79 @@ void day2() {
   printf("Total score: %d\n", total_score_2);
 }
 
+/*** day 3 ***/
+
+#define RUCKSACKS_FILE "inputs/rucksacks"
+#define ALPHABET_SIZE 26
+#define NUM_RUCKSACKS 300
+
+struct rucksack {
+  uint64_t compartment_1;
+  uint64_t compartment_2;
+};
+
+/* a..z => 0..25, A..Z => 26..51 */
+int alpha_to_int(char c) {
+  if (c >= 'a' && c <= 'z') {
+    return (int)c - 'a';
+  }
+  if (c >= 'A' && c <= 'Z') {
+    return (int)c - 'A' + ALPHABET_SIZE;
+  }
+
+  assert(0);
+}
+
+size_t parse_rucksack(char *s, size_t len, void **buffer) {
+  struct rucksack *rucksacks = (struct rucksack *)*buffer;
+  size_t i;
+
+  rucksacks->compartment_1 = 0;
+  rucksacks->compartment_2 = 0;
+
+  for (i = 0; i < len - 1; i++) {
+    int char_index = alpha_to_int(s[i]);
+
+    if (i < (len - 1) / 2) {
+      rucksacks->compartment_1 |= (uint64_t)1 << char_index;
+    } else {
+      rucksacks->compartment_2 |= (uint64_t)1 << char_index;
+    }
+  }
+
+  *buffer = (void *)(rucksacks + 1);
+
+  return 1;
+}
+
+void day3() {
+  struct rucksack *rucksacks = calloc(NUM_RUCKSACKS, sizeof(struct rucksack));
+  size_t rucksacks_len = parse_file(RUCKSACKS_FILE, parse_rucksack, rucksacks);
+  int total_priorities_1 = 0;
+  int total_priorities_2 = 0;
+  int i;
+
+  assert(rucksacks_len == NUM_RUCKSACKS);
+
+  for (i = 0; i < NUM_RUCKSACKS; i++) {
+    uint64_t compartments_and =
+        rucksacks[i].compartment_1 & rucksacks[i].compartment_2;
+    total_priorities_1 += get_set_bit(compartments_and) + 1;
+
+    if (i % 3 == 0) {
+      compartments_and =
+          (rucksacks[i + 0].compartment_1 | rucksacks[i + 0].compartment_2) &
+          (rucksacks[i + 1].compartment_1 | rucksacks[i + 1].compartment_2) &
+          (rucksacks[i + 2].compartment_1 | rucksacks[i + 2].compartment_2);
+      total_priorities_2 += get_set_bit(compartments_and) + 1;
+    }
+  }
+
+  printf("\n=== Day 3 ===\n");
+  printf("Mispacked items total priorities: %d\n", total_priorities_1);
+  printf("Badge letter total priorities: %d\n", total_priorities_2);
+}
+
 /*** main ***/
 
 int main() {
@@ -239,6 +326,7 @@ int main() {
 
   day1();
   day2();
+  day3();
 
   return 0;
 }
