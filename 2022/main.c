@@ -235,7 +235,7 @@ void day2() {
 
     /* strategy 2: XYZ means outcome */
     outcome = rps_outcome_from_char(pair.us);
-    us = rps_move_outcome_move[them][us];
+    us = rps_move_outcome_move[them][outcome];
     total_score_2 += rps_scores_move[us] + rps_scores_outcome[outcome];
   }
 
