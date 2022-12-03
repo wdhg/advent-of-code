@@ -72,18 +72,19 @@ int get_set_bit(uint64_t bits) {
 
 /* generic line-by-line file parser */
 size_t parse_file(char *filename,
-                  size_t (*parse_to_buffer)(char *s, size_t len, void **buffer),
+                  size_t (*parse_to_buffer)(char *s, size_t s_len,
+                                            void **buffer, size_t i),
                   void *buffer) {
   FILE *fp = fopen(filename, "r");
   char *line;
   size_t line_size;
-  size_t output_size = 0;
+  size_t i = 0;
 
   while ((line = fgetln(fp, &line_size)) != NULL) {
-    output_size += parse_to_buffer(line, line_size, &buffer);
+    i += parse_to_buffer(line, line_size, &buffer, i);
   }
 
-  return output_size;
+  return i;
 }
 
 /*** day 1 ***/
@@ -95,20 +96,19 @@ struct calories {
   int values[16];
 };
 
-size_t parse_calories(char *s, size_t len, void **buffer) {
+size_t parse_calories(char *s, size_t s_len, void **buffer, size_t i) {
   struct calories *calories = (struct calories *)*buffer;
 
   if (*s == '\n') {
-    *buffer = (void *)(calories + 1); /* increment the buffer */
-    return 0;
+    return 1;
   }
 
-  calories->values[calories->size] = strtol(s, NULL, 10);
-  calories->size++;
+  calories[i].values[calories[i].size] = strtol(s, NULL, 10);
+  calories[i].size++;
 
-  (void)len; /* unused */
+  (void)s_len; /* unused */
 
-  return 1;
+  return 0;
 }
 
 struct calories *get_calories(size_t *size) {
@@ -201,16 +201,15 @@ enum rps_outcome rps_outcome_from_char(char c) {
   }
 }
 
-size_t parse_rps_pair(char *s, size_t len, void **buffer) {
+size_t parse_rps_pair(char *s, size_t s_len, void **buffer, size_t i) {
   struct rps_pair *pairs = (struct rps_pair *)*buffer;
 
-  assert(len == 4); /* "A X\n" */
+  assert(s_len == 4); /* "A X\n" */
 
-  pairs->them = s[0];
-  pairs->us = s[2];
-  *buffer = (void *)(pairs + 1);
+  pairs[i].them = s[0];
+  pairs[i].us = s[2];
 
-  (void)len; /* unused */
+  (void)s_len; /* unused */
 
   return 1;
 }
@@ -269,24 +268,22 @@ int alpha_to_int(char c) {
   assert(0);
 }
 
-size_t parse_rucksack(char *s, size_t len, void **buffer) {
+size_t parse_rucksack(char *s, size_t s_len, void **buffer, size_t i) {
   struct rucksack *rucksacks = (struct rucksack *)*buffer;
-  size_t i;
+  size_t j;
 
-  rucksacks->compartment_1 = 0;
-  rucksacks->compartment_2 = 0;
+  rucksacks[i].compartment_1 = 0;
+  rucksacks[i].compartment_2 = 0;
 
-  for (i = 0; i < len - 1; i++) {
-    int char_index = alpha_to_int(s[i]);
+  for (j = 0; j < s_len - 1; j++) {
+    int char_index = alpha_to_int(s[j]);
 
-    if (i < (len - 1) / 2) {
-      rucksacks->compartment_1 |= (uint64_t)1 << char_index;
+    if (j < (s_len - 1) / 2) {
+      rucksacks[i].compartment_1 |= (uint64_t)1 << char_index;
     } else {
-      rucksacks->compartment_2 |= (uint64_t)1 << char_index;
+      rucksacks[i].compartment_2 |= (uint64_t)1 << char_index;
     }
   }
-
-  *buffer = (void *)(rucksacks + 1);
 
   return 1;
 }
