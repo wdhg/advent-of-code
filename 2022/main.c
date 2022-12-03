@@ -141,8 +141,7 @@ void day1() {
   }
 
   printf("\n=== Day 1 ===\n");
-  printf("Highest calories: %d, %d, %d\n", max_calories[0], max_calories[1],
-         max_calories[2]);
+  printf("Highest calories: %d\n", *maximum(max_calories, 3));
   printf("Top 3 sum is: %d\n", sum(max_calories, 3));
 }
 
