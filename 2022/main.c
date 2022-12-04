@@ -315,7 +315,7 @@ void day3() {
   printf("Badge letter total priorities: %d\n", total_priorities_2);
 }
 
-/*** day 3 ***/
+/*** day 4 ***/
 
 #define ASSIGNMENTS_FILE "inputs/section-assignments"
 #define NUM_ASSIGNMENTS 1000
