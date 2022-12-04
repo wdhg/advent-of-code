@@ -315,6 +315,72 @@ void day3() {
   printf("Badge letter total priorities: %d\n", total_priorities_2);
 }
 
+/*** day 3 ***/
+
+#define ASSIGNMENTS_FILE "inputs/section-assignments"
+#define NUM_ASSIGNMENTS 1000
+
+struct assignment {
+  int from;
+  int to;
+};
+
+struct assignment_pair {
+  struct assignment a;
+  struct assignment b;
+};
+
+size_t parse_assignment_pairs(char *s, size_t s_len, void **buffer, size_t i) {
+  struct assignment_pair *pairs = (struct assignment_pair *)*buffer;
+  char *next_char = s;
+
+  /* "98-98,17-99" */
+  pairs[i].a.from = strtol(next_char, &next_char, 10);
+  pairs[i].a.to = strtol(next_char + 1, &next_char, 10);
+  pairs[i].b.from = strtol(next_char + 1, &next_char, 10);
+  pairs[i].b.to = strtol(next_char + 1, &next_char, 10);
+
+  (void)s_len; /* unused */
+
+  return 1;
+}
+
+int assignments_nest(struct assignment a, struct assignment b) {
+  return (a.from <= b.from && b.to <= a.to) ||
+         (b.from <= a.from && a.to <= b.to);
+}
+
+int assignments_overlap(struct assignment a, struct assignment b) {
+  return (a.from <= b.from && b.from <= a.to) ||
+         (b.from <= a.from && a.from <= b.to);
+}
+
+void day4() {
+  struct assignment_pair *pairs =
+      calloc(NUM_ASSIGNMENTS, sizeof(struct assignment_pair));
+  size_t pairs_len =
+      parse_file(ASSIGNMENTS_FILE, parse_assignment_pairs, pairs);
+  int i;
+  int num_nested_assignments = 0;
+  int num_overlapping_assingments = 0;
+
+  assert(pairs_len == NUM_ASSIGNMENTS);
+
+  for (i = 0; i < NUM_ASSIGNMENTS; i++) {
+    if (assignments_nest(pairs[i].a, pairs[i].b)) {
+      num_nested_assignments++;
+    }
+
+    if (assignments_overlap(pairs[i].a, pairs[i].b)) {
+      num_overlapping_assingments++;
+    }
+  }
+
+  printf("\n=== Day 4 ===\n");
+  printf("Total nested assignments: %d\n", num_nested_assignments);
+  printf("Total overlapping assignments: %d\n", num_overlapping_assingments);
+}
+
 /*** main ***/
 
 int main() {
@@ -323,6 +389,7 @@ int main() {
   day1();
   day2();
   day3();
+  day4();
 
   return 0;
 }
