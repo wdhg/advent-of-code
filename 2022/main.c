@@ -2,6 +2,20 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+/*** util ***/
+
+void reverse_string(char *s, size_t len) {
+  size_t i;
+  char temp;
+
+  for (i = 0; i < len / 2; i++) {
+    temp = s[len - (i + 1)];
+    s[len - (i + 1)] = s[i];
+    s[i] = temp;
+  }
+}
 
 /*** math ***/
 
@@ -73,18 +87,20 @@ int get_set_bit(uint64_t bits) {
 /* generic line-by-line file parser */
 size_t parse_file(char *filename,
                   size_t (*parse_to_buffer)(char *s, size_t s_len,
-                                            void **buffer, size_t i),
+                                            void **buffer, size_t ln),
                   void *buffer) {
   FILE *fp = fopen(filename, "r");
   char *line;
   size_t line_size;
-  size_t i = 0;
+  size_t ln = 0;
 
   while ((line = fgetln(fp, &line_size)) != NULL) {
-    i += parse_to_buffer(line, line_size, &buffer, i);
+    ln += parse_to_buffer(line, line_size, &buffer, ln);
   }
 
-  return i;
+  fclose(fp);
+
+  return ln;
 }
 
 /*** day 1 ***/
@@ -96,15 +112,15 @@ struct calories {
   int values[16];
 };
 
-size_t parse_calories(char *s, size_t s_len, void **buffer, size_t i) {
+size_t parse_calories(char *s, size_t s_len, void **buffer, size_t ln) {
   struct calories *calories = (struct calories *)*buffer;
 
   if (*s == '\n') {
     return 1;
   }
 
-  calories[i].values[calories[i].size] = strtol(s, NULL, 10);
-  calories[i].size++;
+  calories[ln].values[calories[ln].size] = strtol(s, NULL, 10);
+  calories[ln].size++;
 
   (void)s_len; /* unused */
 
@@ -200,13 +216,13 @@ enum rps_outcome rps_outcome_from_char(char c) {
   }
 }
 
-size_t parse_rps_pair(char *s, size_t s_len, void **buffer, size_t i) {
+size_t parse_rps_pair(char *s, size_t s_len, void **buffer, size_t ln) {
   struct rps_pair *pairs = (struct rps_pair *)*buffer;
 
   assert(s_len == 4); /* "A X\n" */
 
-  pairs[i].them = s[0];
-  pairs[i].us = s[2];
+  pairs[ln].them = s[0];
+  pairs[ln].us = s[2];
 
   (void)s_len; /* unused */
 
@@ -267,20 +283,20 @@ int alpha_to_int(char c) {
   assert(0);
 }
 
-size_t parse_rucksack(char *s, size_t s_len, void **buffer, size_t i) {
+size_t parse_rucksack(char *s, size_t s_len, void **buffer, size_t ln) {
   struct rucksack *rucksacks = (struct rucksack *)*buffer;
-  size_t j;
+  size_t i;
 
-  rucksacks[i].compartment_1 = 0;
-  rucksacks[i].compartment_2 = 0;
+  rucksacks[ln].compartment_1 = 0;
+  rucksacks[ln].compartment_2 = 0;
 
-  for (j = 0; j < s_len - 1; j++) {
-    int char_index = alpha_to_int(s[j]);
+  for (i = 0; i < s_len - 1; i++) {
+    int char_index = alpha_to_int(s[i]);
 
-    if (j < (s_len - 1) / 2) {
-      rucksacks[i].compartment_1 |= (uint64_t)1 << char_index;
+    if (i < (s_len - 1) / 2) {
+      rucksacks[ln].compartment_1 |= (uint64_t)1 << char_index;
     } else {
-      rucksacks[i].compartment_2 |= (uint64_t)1 << char_index;
+      rucksacks[ln].compartment_2 |= (uint64_t)1 << char_index;
     }
   }
 
@@ -330,15 +346,15 @@ struct assignment_pair {
   struct assignment b;
 };
 
-size_t parse_assignment_pairs(char *s, size_t s_len, void **buffer, size_t i) {
+size_t parse_assignment_pairs(char *s, size_t s_len, void **buffer, size_t ln) {
   struct assignment_pair *pairs = (struct assignment_pair *)*buffer;
   char *next_char = s;
 
   /* "98-98,17-99" */
-  pairs[i].a.from = strtol(next_char, &next_char, 10);
-  pairs[i].a.to = strtol(next_char + 1, &next_char, 10);
-  pairs[i].b.from = strtol(next_char + 1, &next_char, 10);
-  pairs[i].b.to = strtol(next_char + 1, &next_char, 10);
+  pairs[ln].a.from = strtol(next_char, &next_char, 10);
+  pairs[ln].a.to = strtol(next_char + 1, &next_char, 10);
+  pairs[ln].b.from = strtol(next_char + 1, &next_char, 10);
+  pairs[ln].b.to = strtol(next_char + 1, &next_char, 10);
 
   (void)s_len; /* unused */
 
@@ -381,6 +397,165 @@ void day4() {
   printf("Total overlapping assignments: %d\n", num_overlapping_assingments);
 }
 
+/*** day 5 ***/
+
+#define CRATES_FILE "inputs/crates"
+#define NUM_CRATE_MOVES 501
+#define NUM_TOWERS 9
+#define MAX_TOWER_SIZE 64
+#define CHARS_BETWEEN_TOWERS 4
+
+struct crate_towers {
+  char stacks[NUM_TOWERS][64];
+  size_t sizes[NUM_TOWERS];
+};
+
+struct crate_move {
+  int count;
+  int from;
+  int to;
+};
+
+struct crate_moves {
+  struct crate_move arr[NUM_CRATE_MOVES];
+  size_t size;
+};
+
+size_t parse_towers(char *s, size_t s_len, void **buffer, size_t ln) {
+  struct crate_towers *towers = (struct crate_towers *)*buffer;
+  size_t i;
+
+  if (s[0] == 'm' || s[0] == '\n' || s[1] == '1') {
+    return 1;
+  }
+
+  for (i = 0; i < NUM_TOWERS; i++) {
+    char c = s[1 + i * CHARS_BETWEEN_TOWERS];
+
+    if (c == ' ') {
+      continue;
+    }
+
+    towers->stacks[i][towers->sizes[i]] = c;
+    towers->sizes[i]++;
+  }
+
+  (void)s_len;
+  (void)ln;
+
+  return 1;
+}
+
+size_t parse_moves(char *s, size_t s_len, void **buffer, size_t ln) {
+  struct crate_moves *moves = (struct crate_moves *)*buffer;
+  struct crate_move *move = &moves->arr[moves->size];
+
+  if (s[0] != 'm') {
+    return 1;
+  }
+
+  sscanf(s, "move %d from %d to %d\n", &move->count, &move->from, &move->to);
+
+  /* convert to indices from 0 */
+  move->from--;
+  move->to--;
+
+  moves->size++;
+
+  (void)s_len;
+  (void)ln;
+
+  return 1;
+}
+
+void init_crate_towers(struct crate_towers *towers) {
+  size_t i, j;
+
+  for (i = 0; i < NUM_TOWERS; i++) {
+    towers->sizes[i] = 0;
+    for (j = 0; j < MAX_TOWER_SIZE; j++) {
+      towers->stacks[i][j] = '\0';
+    }
+  }
+}
+
+void get_top_crates(struct crate_towers *towers, char *top_crates) {
+  int i;
+
+  for (i = 0; i < NUM_TOWERS; i++) {
+    int tower_size = towers->sizes[i];
+
+    if (tower_size == 0) {
+      top_crates[i] = ' ';
+    } else {
+      top_crates[i] = towers->stacks[i][tower_size - 1];
+    }
+  }
+}
+
+void execute_moves(struct crate_towers *towers, struct crate_moves *moves,
+                   int is_model_9000) {
+  size_t i;
+
+  for (i = 0; i < moves->size; i++) {
+    struct crate_move move = moves->arr[i];
+    char *tower_from = towers->stacks[move.from];
+    char *tower_to = towers->stacks[move.to];
+    size_t *tower_from_size = &towers->sizes[move.from];
+    size_t *tower_to_size = &towers->sizes[move.to];
+    int j;
+
+    assert(*tower_from_size >= (size_t)move.count);
+    assert(*tower_to_size >= 0);
+
+    for (j = 0; j < move.count; j++) {
+      if (is_model_9000) {
+        tower_to[*tower_to_size + j] = tower_from[*tower_from_size - (j + 1)];
+      } else {
+        tower_to[*tower_to_size + j] =
+            tower_from[*tower_from_size - move.count + j];
+      }
+    }
+
+    (*tower_to_size) += move.count;
+    (*tower_from_size) -= move.count;
+
+    tower_to[*tower_to_size] = '\0';
+    tower_from[*tower_from_size] = '\0';
+  }
+}
+
+void day5() {
+  struct crate_towers towers_1, towers_2;
+  struct crate_moves moves;
+  size_t i;
+  char top_crates_1[NUM_TOWERS + 1];
+  char top_crates_2[NUM_TOWERS + 1];
+
+  init_crate_towers(&towers_1);
+  moves.size = 0;
+
+  parse_file(CRATES_FILE, parse_towers, &towers_1);
+  parse_file(CRATES_FILE, parse_moves, &moves);
+
+  /* reverse stacks from parsed order */
+  for (i = 0; i < NUM_TOWERS; i++) {
+    reverse_string(towers_1.stacks[i], towers_1.sizes[i]);
+  }
+
+  towers_2 = towers_1; /* create a copy for part 2 */
+
+  execute_moves(&towers_1, &moves, 1);
+  execute_moves(&towers_2, &moves, 0);
+
+  get_top_crates(&towers_1, top_crates_1);
+  get_top_crates(&towers_2, top_crates_2);
+
+  printf("\n=== Day 5 ===\n");
+  printf("Top crates 1: %s\n", top_crates_1);
+  printf("Top crates 2: %s\n", top_crates_2);
+}
+
 /*** main ***/
 
 int main() {
@@ -390,6 +565,7 @@ int main() {
   day2();
   day3();
   day4();
+  day5();
 
   return 0;
 }
