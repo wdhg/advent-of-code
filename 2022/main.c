@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/signal.h>
 
 /*** util ***/
 
@@ -15,6 +16,20 @@ void reverse_string(char *s, size_t len) {
     s[len - (i + 1)] = s[i];
     s[i] = temp;
   }
+}
+
+int unique_chars(char *s, size_t len) {
+  size_t i, j;
+
+  for (i = 0; i < len - 1; i++) {
+    for (j = i + 1; j < len; j++) {
+      if (s[i] == s[j]) {
+        return 0;
+      }
+    }
+  }
+
+  return 1;
 }
 
 /*** math ***/
@@ -556,6 +571,51 @@ void day5() {
   printf("Top crates 2: %s\n", top_crates_2);
 }
 
+/*** day 6 ***/
+
+#define SIGNAL_FILE "inputs/signal"
+#define SIGNAL_BUFFER_SIZE 4096
+#define MARKER_PACKET_LEN 4
+#define MARKER_MESSAGE_LEN 14
+
+size_t get_signal(char *buffer) {
+  FILE *fp = fopen(SIGNAL_FILE, "r");
+  size_t len = fread(buffer, sizeof(char), SIGNAL_BUFFER_SIZE, fp);
+  fclose(fp);
+  return len;
+}
+
+void day6() {
+  char signal[SIGNAL_BUFFER_SIZE];
+  size_t signal_len = get_signal(signal);
+  size_t i;
+  int first_marker = -1;
+  int first_message = -1;
+
+  for (i = 0; i < signal_len - 3; i++) {
+    if (first_marker == -1 && unique_chars(&signal[i], MARKER_PACKET_LEN)) {
+      first_marker =
+          i + MARKER_PACKET_LEN - 1; /* because we want the last character */
+    }
+
+    if (first_message == -1 && unique_chars(&signal[i], MARKER_MESSAGE_LEN)) {
+      first_message =
+          i + MARKER_MESSAGE_LEN - 1; /* because we want the last character */
+    }
+
+    if (first_marker != -1 && first_message != -1) {
+      break;
+    }
+  }
+
+  assert(first_marker != -1);
+  assert(first_message != -1);
+
+  printf("\n=== Day 5 ===\n");
+  printf("First marker: %d\n", first_marker + 1);
+  printf("First message: %d\n", first_message + 1);
+}
+
 /*** main ***/
 
 int main() {
@@ -566,6 +626,7 @@ int main() {
   day3();
   day4();
   day5();
+  day6();
 
   return 0;
 }
