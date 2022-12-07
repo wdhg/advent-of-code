@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/signal.h>
 
 /*** util ***/
 
@@ -96,6 +95,57 @@ int get_set_bit(uint64_t bits) {
 
   assert(0);
 }
+
+/*** arena allocator ***/
+
+/* https://www.rfleury.com/i/70173682/untangling-lifetimes-with-the-arena */
+
+#define ARENA_SIZE 8192 * 16
+
+/* fits into one page */
+typedef struct arena_t {
+  uint8_t stack[ARENA_SIZE];
+  size_t allocated;
+} arena_t;
+
+arena_t *a_alloc() { return calloc(1, sizeof(arena_t)); }
+
+void *a_push(arena_t *arena, size_t size) {
+  void *ptr = &arena->stack[arena->allocated];
+
+  if (size > ARENA_SIZE - arena->allocated) {
+    assert(0);
+    return NULL;
+  }
+
+  arena->allocated += size;
+
+  return ptr;
+}
+
+void *a_push_zero(arena_t *arena, size_t size) {
+  uint8_t *ptr = a_push(arena, size);
+  size_t i;
+
+  if (ptr == NULL) {
+    return NULL;
+  }
+
+  for (i = 0; i < size; i++) {
+    ptr[i] = 0;
+  }
+
+  return ptr;
+}
+
+#define a_push_array(arena, count, type)                                       \
+  (type *)a_push((arena), (count) * sizeof(type))
+#define a_push_array_zero(arena, count, type)                                  \
+  (type *)a_push_zero((arena), (count) * sizeof(type))
+
+#define a_push_struct(arena, type) (type *)a_push((arena), sizeof(type))
+#define a_push_struct_zero(arena, type)                                        \
+  (type *)a_push_zero((arena), sizeof(type))
 
 /*** file ***/
 
@@ -611,9 +661,293 @@ void day6() {
   assert(first_marker != -1);
   assert(first_message != -1);
 
-  printf("\n=== Day 5 ===\n");
+  printf("\n=== Day 6 ===\n");
   printf("First marker: %d\n", first_marker + 1);
   printf("First message: %d\n", first_message + 1);
+}
+
+/*** day 7 ***/
+
+#define COMMANDS_FILE "inputs/commands"
+#define MAX_CMDS 1024
+#define MAX_DIR_CHILDREN 16
+#define CD_LEN_BEFORE_ARG 5
+#define DIR_LEN_BEFORE_NAME 4
+#define MAX_FILE_SIZE_TO_COUNT 100000
+#define DISK_SPACE_TOTAL 70000000
+#define DISK_SPACE_NEEDED 30000000
+
+enum cmd_type { CD, LS };
+enum file_type { F, D }; /* file and dir (FILE and DIR already defined) */
+
+struct cmd_output {
+  char *name;
+  enum file_type type;
+
+  /* file stuff */
+  size_t size;
+};
+
+struct cmd {
+  enum cmd_type type;
+
+  /* cd stuff */
+  char *arg;
+
+  /* ls stuff */
+  struct cmd_output **outputs;
+  size_t outputs_size;
+};
+
+struct file {
+  char *name;
+  enum file_type type;
+  struct file *parent;
+  size_t size;
+
+  /* directory stuff*/
+  struct file *children[MAX_DIR_CHILDREN];
+  size_t child_count;
+};
+
+struct cmd *parse_cmd(char *s, size_t s_len, arena_t *arena) {
+  struct cmd *cmd = a_push_struct_zero(arena, struct cmd);
+
+  assert(s[0] == '$');
+
+  if (s[2] == 'c') {
+    /* e.g. s = "$ cd ..\n", s_len = 8 */
+    size_t arg_len = s_len - CD_LEN_BEFORE_ARG;
+    cmd->type = CD;
+    cmd->arg = a_push_array_zero(arena, arg_len, char);
+    memcpy(cmd->arg, &s[CD_LEN_BEFORE_ARG], arg_len - 1);
+    cmd->arg[arg_len] = '\0';
+  } else if (s[2] == 'l') {
+    /* e.g. s = "$ ls\n", s_len = 5 */
+    cmd->type = LS;
+    cmd->outputs =
+        a_push_array_zero(arena, MAX_DIR_CHILDREN, struct cmd_output *);
+    cmd->outputs_size = 0;
+  } else {
+    assert(0);
+  }
+
+  return cmd;
+}
+
+struct cmd_output *parse_cmd_output(char *s, size_t s_len, arena_t *arena) {
+  struct cmd_output *output = a_push_struct(arena, struct cmd_output);
+  char *name;
+  size_t name_len;
+
+  if (s[0] == 'd') {
+    /* directory, e.g. s = "dir qrpr\n", s_len = 9 */
+    output->type = D;
+    name = &s[DIR_LEN_BEFORE_NAME];
+  } else {
+    /* file, e.g. s = "112216 slzn.jls\n", s_len = 16 */
+    output->type = F;
+    output->size = strtol(s, &name, 10);
+    name++; /* skip whitespace */
+  }
+
+  name_len = s_len - (name - s);
+  output->name = a_push_array_zero(arena, name_len, char);
+  memcpy(output->name, name, name_len - 1);
+  output->name[name_len] = '\0';
+
+  return output;
+}
+
+size_t get_cmds(arena_t *arena, struct cmd ***cmds_ptr) {
+  FILE *fp = fopen(COMMANDS_FILE, "r");
+  char *line;
+  size_t line_size;
+  struct cmd **cmds = a_push_array_zero(arena, MAX_CMDS, struct cmd *);
+  size_t cmds_len = 0;
+
+  *cmds_ptr = cmds;
+
+  while ((line = fgetln(fp, &line_size)) != NULL) {
+    if (line[0] == '$') {
+      cmds[cmds_len] = parse_cmd(line, line_size, arena);
+      cmds_len++;
+    } else {
+      assert(cmds[cmds_len - 1]->outputs_size < MAX_DIR_CHILDREN);
+      cmds[cmds_len - 1]->outputs[cmds[cmds_len - 1]->outputs_size] =
+          parse_cmd_output(line, line_size, arena);
+      cmds[cmds_len - 1]->outputs_size++;
+    }
+  }
+
+  return cmds_len;
+}
+
+struct file *add_child(struct file *dir, char *name, arena_t *arena) {
+  struct file *child;
+  size_t name_len = strlen(name);
+
+  assert(dir->child_count < MAX_DIR_CHILDREN - 1);
+
+  child = a_push_struct_zero(arena, struct file);
+  child->name = a_push_array_zero(arena, name_len + 1, char);
+  strcpy(child->name, name);
+  child->parent = dir;
+
+  dir->children[dir->child_count] = child;
+  dir->child_count++;
+
+  return child;
+}
+
+void add_file(struct file *dir, char *name, size_t size, arena_t *arena) {
+  struct file *f = add_child(dir, name, arena);
+
+  f->type = F;
+  f->size = size;
+
+  /* propagate size */
+  while (f->parent != NULL) {
+    f->parent->size += size;
+    f = f->parent;
+  }
+}
+
+void add_dir(struct file *dir, char *name, arena_t *arena) {
+  struct file *f = add_child(dir, name, arena);
+
+  f->type = D;
+  f->child_count = 0;
+  f->size = 0;
+}
+
+struct file *cmd_cd(struct file *cur_dir, char *name) {
+  size_t i;
+
+  if (strcmp(name, "..") == 0) {
+    return cur_dir->parent;
+  }
+
+  for (i = 0; i < cur_dir->child_count; i++) {
+    struct file *child = cur_dir->children[i];
+
+    if (strcmp(child->name, name) == 0) {
+      return child;
+    }
+  }
+
+  assert(0);
+}
+
+struct file *get_files(struct cmd **cmds, size_t cmds_len, arena_t *arena) {
+  struct file *root = a_push_struct_zero(arena, struct file);
+  struct file *cur_dir = root;
+  size_t i, j;
+
+  root->name = a_push_array_zero(arena, 2, char);
+  strcpy(root->name, "/");
+
+  /* skip first command "$ cd /" */
+  for (i = 1; i < cmds_len; i++) {
+    struct cmd *cmd = cmds[i];
+
+    if (cmd->type == CD) {
+      cur_dir = cmd_cd(cur_dir, cmd->arg);
+    } else {
+      for (j = 0; j < cmd->outputs_size; j++) {
+        struct cmd_output *output = cmd->outputs[j];
+
+        if (output->type == F) {
+          add_file(cur_dir, output->name, output->size, arena);
+        } else {
+          add_dir(cur_dir, output->name, arena);
+        }
+      }
+    }
+  }
+
+  return root;
+}
+
+void print_cmds(struct cmd **cmds, size_t cmds_len) {
+  size_t i, j;
+
+  for (i = 0; i < cmds_len; i++) {
+    if (cmds[i]->type == CD) {
+      printf("$ cd %s\n", cmds[i]->arg);
+    } else {
+      printf("$ ls\n");
+      for (j = 0; j < cmds[i]->outputs_size; j++) {
+        if (cmds[i]->outputs[j]->type == F) {
+          printf("%ld %s\n", cmds[i]->outputs[j]->size,
+                 cmds[i]->outputs[j]->name);
+        } else {
+          printf("dir %s\n", cmds[i]->outputs[j]->name);
+        }
+      }
+    }
+  }
+}
+
+size_t get_dir_size_total_under_limit(struct file *dir) {
+  size_t i;
+  size_t size = 0;
+
+  for (i = 0; i < dir->child_count; i++) {
+    struct file *child = dir->children[i];
+
+    if (child->type == D) {
+      if (child->size < MAX_FILE_SIZE_TO_COUNT) {
+        size += child->size;
+      }
+      size += get_dir_size_total_under_limit(child);
+    }
+  }
+
+  return size;
+}
+
+struct file *get_smallest_dir_to_delete(struct file *dir, size_t space_needed) {
+  struct file *smallest;
+  size_t i;
+
+  if (dir->size < space_needed) {
+    return NULL;
+  }
+
+  smallest = dir;
+
+  for (i = 0; i < dir->child_count; i++) {
+    struct file *child = dir->children[i];
+    if (child->type == D && child->size >= space_needed) {
+      struct file *child_smallest =
+          get_smallest_dir_to_delete(child, space_needed);
+
+      if (child_smallest != NULL && child_smallest->size < smallest->size) {
+        smallest = child_smallest;
+      } else if (child->size < smallest->size) {
+        smallest = child;
+      }
+    }
+  }
+
+  return smallest;
+}
+
+void day7() {
+  arena_t *cmds_arena = a_alloc();
+  struct cmd **cmds;
+  size_t cmds_len = get_cmds(cmds_arena, &cmds);
+  arena_t *files_arena = a_alloc();
+  struct file *root = get_files(cmds, cmds_len, files_arena);
+  size_t total_size_under_limit = get_dir_size_total_under_limit(root);
+  size_t space_needed = DISK_SPACE_NEEDED - (DISK_SPACE_TOTAL - root->size);
+  struct file *smallest_dir_to_delete =
+      get_smallest_dir_to_delete(root, space_needed);
+
+  printf("\n=== Day 7 ===\n");
+  printf("Total size under limit: %ld\n", total_size_under_limit);
+  printf("Smallest dir size to delete: %ld\n", smallest_dir_to_delete->size);
 }
 
 /*** main ***/
@@ -627,6 +961,7 @@ int main() {
   day4();
   day5();
   day6();
+  day7();
 
   return 0;
 }
