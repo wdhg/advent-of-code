@@ -1,3 +1,4 @@
+#include <_types/_uint8_t.h>
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -950,6 +951,130 @@ void day7() {
   printf("Smallest dir size to delete: %ld\n", smallest_dir_to_delete->size);
 }
 
+/*** day 8 ***/
+
+#define TREES_FILE "inputs/trees"
+#define GRID_SIZE 99
+
+uint8_t *get_trees() {
+  uint8_t *trees = calloc(GRID_SIZE * GRID_SIZE, sizeof(uint8_t));
+  FILE *fp = fopen(TREES_FILE, "r");
+  char *line;
+  size_t line_size;
+  size_t x = 0;
+  size_t y = 0;
+
+  while ((line = fgetln(fp, &line_size)) != NULL) {
+    assert(line_size - 1 == GRID_SIZE);
+
+    for (x = 0; x < GRID_SIZE; x++) {
+      trees[x + y * GRID_SIZE] = line[x];
+    }
+
+    y++;
+  }
+
+  return trees;
+}
+
+void propagate_visibility_in_dir(uint8_t *trees, uint8_t *visibility, int x,
+                                 int y, int dx, int dy) {
+  uint8_t shortest_height = 0;
+
+  while (x >= 0 && y >= 0 && x < GRID_SIZE && y < GRID_SIZE) {
+    uint8_t height = trees[x + y * GRID_SIZE];
+
+    if (height > shortest_height) {
+      shortest_height = height;
+      visibility[x + y * GRID_SIZE] = 1;
+    }
+
+    x += dx;
+    y += dy;
+  }
+}
+
+uint8_t *get_visbility(uint8_t *trees) {
+  uint8_t *visibility = calloc(GRID_SIZE * GRID_SIZE, sizeof(uint8_t));
+  int x, y;
+
+  for (x = 0; x < GRID_SIZE; x++) {
+    propagate_visibility_in_dir(trees, visibility, x, GRID_SIZE - 1, 0, -1);
+    propagate_visibility_in_dir(trees, visibility, x, 0, 0, 1);
+  }
+
+  for (y = 0; y < GRID_SIZE; y++) {
+    propagate_visibility_in_dir(trees, visibility, 0, y, 1, 0);
+    propagate_visibility_in_dir(trees, visibility, GRID_SIZE - 1, y, -1, 0);
+  }
+
+  return visibility;
+}
+
+int count_visible(uint8_t *visibility) {
+  int total_visible = 0;
+  int x, y;
+
+  for (y = 0; y < GRID_SIZE; y++) {
+    for (x = 0; x < GRID_SIZE; x++) {
+      total_visible += visibility[x + y * GRID_SIZE];
+    }
+  }
+
+  return total_visible;
+}
+
+int in_grid(int i) { return i >= 0 && i < GRID_SIZE; }
+
+int count_visible_in_dir(uint8_t *trees, int x, int y, int dx, int dy) {
+  int x_next = x + dx;
+  int y_next = y + dy;
+  int count = 0;
+  uint8_t max_height = trees[x + y * GRID_SIZE];
+
+  if (!in_grid(x_next) || !in_grid(y_next)) {
+    return 0;
+  }
+
+  while (in_grid(x_next) && in_grid(y_next)) {
+    count++;
+
+    if (trees[x_next + y_next * GRID_SIZE] >= max_height) {
+      break;
+    }
+
+    x_next += dx;
+    y_next += dy;
+  }
+
+  return count;
+}
+
+int get_scenic_score(uint8_t *trees, int x, int y) {
+  return count_visible_in_dir(trees, x, y, 0, -1) *
+         count_visible_in_dir(trees, x, y, 0, 1) *
+         count_visible_in_dir(trees, x, y, -1, 0) *
+         count_visible_in_dir(trees, x, y, 1, 0);
+}
+
+void day8() {
+  uint8_t *trees = get_trees();
+  int x, y;
+  uint8_t *visibility = get_visbility(trees);
+  int total_visible = count_visible(visibility);
+  int max_scenic_score = 0;
+
+  for (x = 0; x < GRID_SIZE; x++) {
+    for (y = 0; y < GRID_SIZE; y++) {
+      max_scenic_score = max(max_scenic_score, get_scenic_score(trees, x, y));
+    }
+  }
+
+  printf("\n=== Day 8 ===\n");
+  printf("Total trees visible: %d\n", total_visible);
+  printf("Max scenic score: %d\n", max_scenic_score);
+}
+
 /*** main ***/
 
 int main() {
@@ -962,6 +1087,7 @@ int main() {
   day5();
   day6();
   day7();
+  day8();
 
   return 0;
 }
