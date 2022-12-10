@@ -1,4 +1,3 @@
-#include <_types/_uint8_t.h>
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -1075,6 +1074,100 @@ void day8() {
   printf("Max scenic score: %d\n", max_scenic_score);
 }
 
+/*** day 9 ***/
+
+#define CPU_SIGNAL_FILE "inputs/cpu-signal"
+#define MAX_CPU_INSTRS 200
+#define SCREEN_WIDTH 40
+#define SCREEN_HEIGHT 6
+
+enum cpu_instr_type { NOOP, ADDX };
+
+int cpu_instr_cycles[2] = {1, 2};
+
+struct cpu_instr {
+  enum cpu_instr_type type;
+  int arg;
+};
+
+struct cpu {
+  int cycle;
+  int x;
+
+  struct cpu_instr instr;
+  int cycle_instr_start;
+};
+
+size_t parse_cpu_instr(char *s, size_t s_len, void **buffer, size_t ln) {
+  struct cpu_instr *instrs = (struct cpu_instr *)*buffer;
+
+  if (s[0] == 'n') {
+    instrs[ln].type = NOOP;
+  } else {
+    instrs[ln].type = ADDX;
+    sscanf(s, "addx %d\n", &instrs[ln].arg);
+  }
+
+  (void)s_len; /* unused */
+
+  return 1;
+}
+
+void day10() {
+  struct cpu_instr *instrs = calloc(MAX_CPU_INSTRS, sizeof(struct cpu_instr));
+  size_t instrs_size = parse_file(CPU_SIGNAL_FILE, parse_cpu_instr, instrs);
+  struct cpu cpu;
+  int signal_sum = 0;
+  size_t i = 1;
+  int xs[240];
+  int cycles_to_sum[6] = {20, 60, 100, 140, 180, 220};
+
+  cpu.cycle = 0;
+  cpu.x = 1;
+  cpu.instr = instrs[0];
+  cpu.cycle_instr_start = 0;
+
+  while (i < instrs_size && cpu.cycle <= 240) {
+    cpu.cycle++;
+
+    xs[cpu.cycle - 1] = cpu.x;
+
+    if (cpu.cycle >= cpu.cycle_instr_start + cpu_instr_cycles[cpu.instr.type]) {
+      if (cpu.instr.type == ADDX) {
+        cpu.x += cpu.instr.arg;
+      }
+
+      cpu.instr = instrs[i];
+      cpu.cycle_instr_start = cpu.cycle;
+
+      i++;
+    }
+  }
+
+  for (i = 0; i < 6; i++) {
+    int cycle = cycles_to_sum[i];
+    signal_sum += cycle * xs[cycle - 1];
+  }
+
+  printf("\n=== Day 10 ===\n");
+  printf("Signal sum: %d\n", signal_sum);
+  printf("Image:\n");
+
+  for (i = 1; i <= 240; i++) {
+    int x = (i - 1) % SCREEN_WIDTH;
+
+    if (x >= xs[i - 1] - 1 && x <= xs[i - 1] + 1) {
+      printf("#");
+    } else {
+      printf(".");
+    }
+
+    if (x == SCREEN_WIDTH - 1) {
+      printf("\n");
+    }
+  }
+}
+
 /*** main ***/
 
 int main() {
@@ -1088,6 +1181,7 @@ int main() {
   day6();
   day7();
   day8();
+  day10();
 
   return 0;
 }
