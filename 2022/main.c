@@ -82,6 +82,67 @@ int *minimum_or_maximum(int *vals, size_t len, int is_min) {
 int *maximum(int *vals, size_t len) { return minimum_or_maximum(vals, len, 0); }
 int *minimum(int *vals, size_t len) { return minimum_or_maximum(vals, len, 1); }
 
+int abs(int a) {
+  if (a < 0) {
+    return -a;
+  }
+  return a;
+}
+
+int sign(int a) {
+  if (a > 0) {
+    return 1;
+  }
+
+  if (a < 0) {
+    return -1;
+  }
+
+  return 0;
+}
+
+typedef enum dir { N, E, S, W } dir_t;
+
+typedef struct vec {
+  int x;
+  int y;
+} vec_t;
+
+#define vec_Z                                                                  \
+  { 0, 0 }
+#define vec_N                                                                  \
+  { 0, 1 }
+#define vec_E                                                                  \
+  { 1, 0 }
+#define vec_S                                                                  \
+  { 0, -1 }
+#define vec_W                                                                  \
+  { -1, 0 }
+
+vec_t vec_dirs[4] = {vec_N, vec_E, vec_S, vec_W};
+
+int vec_eq(vec_t a, vec_t b) { return a.x == b.x && a.y == b.y; }
+
+vec_t vec_add(vec_t a, vec_t b) {
+  vec_t r;
+  r.x = a.x + b.x;
+  r.y = a.y + b.y;
+  return r;
+}
+
+vec_t vec_sub(vec_t a, vec_t b) {
+  vec_t r;
+  r.x = a.x - b.x;
+  r.y = a.y - b.y;
+  return r;
+}
+
+vec_t vec_sign(vec_t a) {
+  a.x = sign(a.x);
+  a.y = sign(a.y);
+  return a;
+}
+
 /*** bits/binary ***/
 
 int get_set_bit(uint64_t bits) {
@@ -973,6 +1034,8 @@ uint8_t *get_trees() {
     y++;
   }
 
+  fclose(fp);
+
   return trees;
 }
 
@@ -1075,6 +1138,103 @@ void day8() {
 }
 
 /*** day 9 ***/
+
+#define ROPE_FILE "inputs/rope"
+#define MAX_NUM_MOVES 2000
+#define ROPE_GRID_SIZE 1000
+
+struct rope_move {
+  dir_t dir;
+  int distance;
+};
+
+dir_t rope_dir_from_char(char c) {
+  switch (c) {
+  case 'U':
+    return N;
+  case 'D':
+    return S;
+  case 'L':
+    return W;
+  case 'R':
+    return E;
+  default:
+    assert(0);
+  }
+}
+
+size_t parse_rope_move(char *s, size_t s_len, void **buffer, size_t ln) {
+  struct rope_move *moves = (struct rope_move *)*buffer;
+  char dir;
+
+  sscanf(s, "%c %d\n", &dir, &moves[ln].distance);
+  moves[ln].dir = rope_dir_from_char(dir);
+
+  (void)s_len;
+  (void)ln;
+
+  return 1;
+}
+
+int rope_adjacent(vec_t head, vec_t tail) {
+  vec_t diff = vec_sub(head, tail);
+  return abs(diff.x) <= 1 && abs(diff.y) <= 1;
+}
+
+void set_rope_grid(uint8_t *rope_grid, int x, int y, int bit) {
+  x += ROPE_GRID_SIZE / 2;
+  y += ROPE_GRID_SIZE / 2;
+
+  rope_grid[x + y * ROPE_GRID_SIZE] |= 1 << bit;
+}
+
+int count_visited(uint8_t *rope_grid, int bit) {
+  int i;
+  int visited = 0;
+
+  for (i = 0; i < ROPE_GRID_SIZE * ROPE_GRID_SIZE; i++) {
+    if (rope_grid[i] & 1 << bit) {
+      visited++;
+    }
+  }
+
+  return visited;
+}
+
+void day9() {
+  struct rope_move *moves = calloc(MAX_NUM_MOVES, sizeof(struct rope_move));
+  size_t moves_size = parse_file(ROPE_FILE, parse_rope_move, moves);
+  uint8_t *rope_grid = calloc(ROPE_GRID_SIZE * ROPE_GRID_SIZE, sizeof(uint8_t));
+  vec_t rope[10] = {vec_Z};
+  size_t i, j, r;
+
+  set_rope_grid(rope_grid, 0, 0, 0);
+  set_rope_grid(rope_grid, 0, 0, 1);
+
+  for (i = 0; i < moves_size; i++) {
+    struct rope_move move = moves[i];
+    vec_t dir = vec_dirs[move.dir];
+    for (j = 0; j < (size_t)move.distance; j++) {
+      rope[0] = vec_add(rope[0], dir);
+
+      for (r = 1; r < 10; r++) {
+        if (!rope_adjacent(rope[r], rope[r - 1])) {
+          vec_t diff = vec_sub(rope[r - 1], rope[r]);
+          rope[r] = vec_add(rope[r], vec_sign(diff));
+        }
+      }
+
+      set_rope_grid(rope_grid, rope[1].x, rope[1].y, 0);
+      set_rope_grid(rope_grid, rope[9].x, rope[9].y, 1);
+    }
+  }
+
+  printf("\n=== Day 9 ===\n");
+  printf("Rope tail(1) visited: %d\n", count_visited(rope_grid, 0));
+  printf("Rope tail(9) visited: %d\n", count_visited(rope_grid, 1));
+}
+
+/*** day 10 ***/
 
 #define CPU_SIGNAL_FILE "inputs/cpu-signal"
 #define MAX_CPU_INSTRS 200
@@ -1181,6 +1341,7 @@ int main() {
   day6();
   day7();
   day8();
+  day9();
   day10();
 
   return 0;
