@@ -1,4 +1,4 @@
-CFLAGS = -Wall -Wextra -pedantic -std=c89
+CFLAGS = -Wall -Wextra -pedantic -Wlong-long -std=c89
 
 aoc: main.c
 	$(CC) -o main main.c $(CFLAGS)

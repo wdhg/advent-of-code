@@ -213,20 +213,20 @@ void *a_push_zero(arena_t *arena, size_t size) {
 /* generic line-by-line file parser */
 size_t parse_file(char *filename,
                   size_t (*parse_to_buffer)(char *s, size_t s_len,
-                                            void **buffer, size_t ln),
+                                            void **buffer, size_t buffer_index),
                   void *buffer) {
   FILE *fp = fopen(filename, "r");
   char *line;
   size_t line_size;
-  size_t ln = 0;
+  size_t buffer_index = 0;
 
   while ((line = fgetln(fp, &line_size)) != NULL) {
-    ln += parse_to_buffer(line, line_size, &buffer, ln);
+    buffer_index += parse_to_buffer(line, line_size, &buffer, buffer_index);
   }
 
   fclose(fp);
 
-  return ln;
+  return buffer_index;
 }
 
 /*** day 1 ***/
@@ -238,15 +238,17 @@ struct calories {
   int values[16];
 };
 
-size_t parse_calories(char *s, size_t s_len, void **buffer, size_t ln) {
+size_t parse_calories(char *s, size_t s_len, void **buffer,
+                      size_t buffer_index) {
   struct calories *calories = (struct calories *)*buffer;
 
   if (*s == '\n') {
     return 1;
   }
 
-  calories[ln].values[calories[ln].size] = strtol(s, NULL, 10);
-  calories[ln].size++;
+  calories[buffer_index].values[calories[buffer_index].size] =
+      strtol(s, NULL, 10);
+  calories[buffer_index].size++;
 
   (void)s_len; /* unused */
 
@@ -342,13 +344,14 @@ enum rps_outcome rps_outcome_from_char(char c) {
   }
 }
 
-size_t parse_rps_pair(char *s, size_t s_len, void **buffer, size_t ln) {
+size_t parse_rps_pair(char *s, size_t s_len, void **buffer,
+                      size_t buffer_index) {
   struct rps_pair *pairs = (struct rps_pair *)*buffer;
 
   assert(s_len == 4); /* "A X\n" */
 
-  pairs[ln].them = s[0];
-  pairs[ln].us = s[2];
+  pairs[buffer_index].them = s[0];
+  pairs[buffer_index].us = s[2];
 
   (void)s_len; /* unused */
 
@@ -409,20 +412,21 @@ int alpha_to_int(char c) {
   assert(0);
 }
 
-size_t parse_rucksack(char *s, size_t s_len, void **buffer, size_t ln) {
+size_t parse_rucksack(char *s, size_t s_len, void **buffer,
+                      size_t buffer_index) {
   struct rucksack *rucksacks = (struct rucksack *)*buffer;
   size_t i;
 
-  rucksacks[ln].compartment_1 = 0;
-  rucksacks[ln].compartment_2 = 0;
+  rucksacks[buffer_index].compartment_1 = 0;
+  rucksacks[buffer_index].compartment_2 = 0;
 
   for (i = 0; i < s_len - 1; i++) {
     int char_index = alpha_to_int(s[i]);
 
     if (i < (s_len - 1) / 2) {
-      rucksacks[ln].compartment_1 |= (uint64_t)1 << char_index;
+      rucksacks[buffer_index].compartment_1 |= (uint64_t)1 << char_index;
     } else {
-      rucksacks[ln].compartment_2 |= (uint64_t)1 << char_index;
+      rucksacks[buffer_index].compartment_2 |= (uint64_t)1 << char_index;
     }
   }
 
@@ -472,15 +476,16 @@ struct assignment_pair {
   struct assignment b;
 };
 
-size_t parse_assignment_pairs(char *s, size_t s_len, void **buffer, size_t ln) {
+size_t parse_assignment_pairs(char *s, size_t s_len, void **buffer,
+                              size_t buffer_index) {
   struct assignment_pair *pairs = (struct assignment_pair *)*buffer;
   char *next_char = s;
 
   /* "98-98,17-99" */
-  pairs[ln].a.from = strtol(next_char, &next_char, 10);
-  pairs[ln].a.to = strtol(next_char + 1, &next_char, 10);
-  pairs[ln].b.from = strtol(next_char + 1, &next_char, 10);
-  pairs[ln].b.to = strtol(next_char + 1, &next_char, 10);
+  pairs[buffer_index].a.from = strtol(next_char, &next_char, 10);
+  pairs[buffer_index].a.to = strtol(next_char + 1, &next_char, 10);
+  pairs[buffer_index].b.from = strtol(next_char + 1, &next_char, 10);
+  pairs[buffer_index].b.to = strtol(next_char + 1, &next_char, 10);
 
   (void)s_len; /* unused */
 
@@ -547,7 +552,7 @@ struct crate_moves {
   size_t size;
 };
 
-size_t parse_towers(char *s, size_t s_len, void **buffer, size_t ln) {
+size_t parse_towers(char *s, size_t s_len, void **buffer, size_t buffer_index) {
   struct crate_towers *towers = (struct crate_towers *)*buffer;
   size_t i;
 
@@ -567,12 +572,12 @@ size_t parse_towers(char *s, size_t s_len, void **buffer, size_t ln) {
   }
 
   (void)s_len;
-  (void)ln;
+  (void)buffer_index;
 
   return 1;
 }
 
-size_t parse_moves(char *s, size_t s_len, void **buffer, size_t ln) {
+size_t parse_moves(char *s, size_t s_len, void **buffer, size_t buffer_index) {
   struct crate_moves *moves = (struct crate_moves *)*buffer;
   struct crate_move *move = &moves->arr[moves->size];
 
@@ -589,7 +594,7 @@ size_t parse_moves(char *s, size_t s_len, void **buffer, size_t ln) {
   moves->size++;
 
   (void)s_len;
-  (void)ln;
+  (void)buffer_index;
 
   return 1;
 }
@@ -1163,15 +1168,16 @@ dir_t rope_dir_from_char(char c) {
   }
 }
 
-size_t parse_rope_move(char *s, size_t s_len, void **buffer, size_t ln) {
+size_t parse_rope_move(char *s, size_t s_len, void **buffer,
+                       size_t buffer_index) {
   struct rope_move *moves = (struct rope_move *)*buffer;
   char dir;
 
-  sscanf(s, "%c %d\n", &dir, &moves[ln].distance);
-  moves[ln].dir = rope_dir_from_char(dir);
+  sscanf(s, "%c %d\n", &dir, &moves[buffer_index].distance);
+  moves[buffer_index].dir = rope_dir_from_char(dir);
 
   (void)s_len;
-  (void)ln;
+  (void)buffer_index;
 
   return 1;
 }
@@ -1258,14 +1264,15 @@ struct cpu {
   int cycle_instr_start;
 };
 
-size_t parse_cpu_instr(char *s, size_t s_len, void **buffer, size_t ln) {
+size_t parse_cpu_instr(char *s, size_t s_len, void **buffer,
+                       size_t buffer_index) {
   struct cpu_instr *instrs = (struct cpu_instr *)*buffer;
 
   if (s[0] == 'n') {
-    instrs[ln].type = NOOP;
+    instrs[buffer_index].type = NOOP;
   } else {
-    instrs[ln].type = ADDX;
-    sscanf(s, "addx %d\n", &instrs[ln].arg);
+    instrs[buffer_index].type = ADDX;
+    sscanf(s, "addx %d\n", &instrs[buffer_index].arg);
   }
 
   (void)s_len; /* unused */
@@ -1328,6 +1335,172 @@ void day10() {
   }
 }
 
+/*** day 11 ***/
+
+#define MONKEYS_FILE "inputs/monkeys"
+#define NUM_MONKEYS 8
+#define MONKEY_ROUNDS 1000
+#define MAX_MONKEY_ITEMS_SIZE 128
+
+/* e.g. old * 32
+ * first arg  : old
+ * operation  : *, +
+ * second arg : old, N
+ */
+struct monkey_op {
+  int is_add;
+  int arg_is_old;
+  int arg_n; /* if !arg_is_old */
+};
+
+struct monkey {
+  long int items[MAX_MONKEY_ITEMS_SIZE];
+  int items_size;
+
+  struct monkey_op op;
+  int test_divisor;
+  int next_monkey[2]; /* index 0 for false, index 1 for true */
+
+  /* stats */
+  int inspections;
+};
+
+size_t parse_monkeys(char *s, size_t s_len, void **buffer,
+                     size_t buffer_index) {
+  struct monkey *monkeys = (struct monkey *)*buffer;
+  struct monkey *monkey = &monkeys[buffer_index];
+
+  if (s_len == 1 || s[0] == 'M') {
+    /* empty line or next monkey */
+    return 0;
+  }
+
+  if (s[2] == 'S') {
+    /* monkey starting items */
+    s = &s[18]; /* move to first digit */
+    monkey->items_size = 0;
+    while (s[0] != '\n') {
+      monkey->items[monkey->items_size] = strtol(s, &s, 10);
+      monkey->items_size++;
+
+      if (s[0] == ',') {
+        s = &s[2]; /* skip ", " between numbers */
+      }
+    }
+  } else if (s[2] == 'O') {
+    /* monkey operation */
+    monkey->op.is_add = s[23] == '+';
+
+    if (s[25] == 'o') {
+      monkey->op.arg_is_old = 1;
+    } else {
+      monkey->op.arg_is_old = 0;
+      monkey->op.arg_n = strtol(&s[25], NULL, 10);
+    }
+  } else if (s[2] == 'T') {
+    /* monkey test */
+    monkey->test_divisor = strtol(&s[21], NULL, 10);
+  } else if (s[7] == 't') {
+    /* monkey test true case */
+    monkey->next_monkey[1] = strtol(&s[29], NULL, 10);
+  } else if (s[7] == 'f') {
+    /* monkey test false case */
+    monkey->next_monkey[0] = strtol(&s[30], NULL, 10);
+    return 1;
+  } else {
+    assert(0);
+  }
+
+  return 0;
+}
+
+long int exe_monkey_op(struct monkey_op op, long int level) {
+  int arg;
+
+  if (op.arg_is_old) {
+    arg = level;
+  } else {
+    arg = op.arg_n;
+  }
+
+  if (op.is_add) {
+    return level + arg;
+  } else {
+    return level * arg;
+  }
+}
+
+void throw_items(struct monkey *monkey, struct monkey *monkeys,
+                 int divide_by_three, int mod) {
+  int i;
+
+  for (i = 0; i < monkey->items_size; i++) {
+    int monkey_next_index;
+    struct monkey *monkey_next;
+    long int level = monkey->items[i];
+    level = exe_monkey_op(monkey->op, level);
+    level %= mod;
+
+    if (divide_by_three) {
+      level /= 3;
+    }
+
+    monkey->inspections++;
+
+    monkey_next_index = monkey->next_monkey[level % monkey->test_divisor == 0];
+    monkey_next = &monkeys[monkey_next_index];
+    monkey_next->items[monkey_next->items_size] = level;
+    monkey_next->items_size++;
+  }
+
+  monkey->items_size = 0;
+}
+
+long int simulate_monkeys(struct monkey *monkeys, size_t monkeys_size,
+                          size_t rounds, int divide_by_three, int mod) {
+  long int max_inspections[2] = {0, 0};
+  size_t i, j;
+
+  for (i = 0; i < rounds; i++) {
+    for (j = 0; j < monkeys_size; j++) {
+      throw_items(&monkeys[j], monkeys, divide_by_three, mod);
+    }
+  }
+
+  for (i = 0; i < monkeys_size; i++) {
+    long int inspections = monkeys[i].inspections;
+
+    if (inspections > max_inspections[0]) {
+      max_inspections[1] = max_inspections[0];
+      max_inspections[0] = inspections;
+    } else if (inspections > max_inspections[1]) {
+      max_inspections[1] = inspections;
+    }
+  }
+
+  return max_inspections[0] * max_inspections[1];
+}
+
+void day11() {
+  struct monkey *monkeys_1 = calloc(NUM_MONKEYS, sizeof(struct monkey));
+  struct monkey *monkeys_2 = calloc(NUM_MONKEYS, sizeof(struct monkey));
+  size_t monkeys_size = parse_file(MONKEYS_FILE, parse_monkeys, monkeys_1);
+  int mod = 1;
+  size_t i;
+
+  memcpy(monkeys_2, monkeys_1, NUM_MONKEYS * sizeof(struct monkey));
+
+  for (i = 0; i < monkeys_size; i++) {
+    mod *= monkeys_1[i].test_divisor;
+  }
+
+  printf("\n=== Day 11 ===\n");
+  printf("Monkey business level(20): %ld\n",
+         simulate_monkeys(monkeys_1, monkeys_size, 20, 1, mod * 3));
+  printf("Monkey business level(10000): %ld\n",
+         simulate_monkeys(monkeys_2, monkeys_size, 10000, 0, mod));
+}
+
 /*** main ***/
 
 int main() {
@@ -1343,6 +1516,7 @@ int main() {
   day8();
   day9();
   day10();
+  day11();
 
   return 0;
 }
