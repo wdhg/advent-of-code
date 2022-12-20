@@ -45,6 +45,14 @@ int max(int a, int b) {
   return b;
 }
 
+int min(int a, int b) {
+  if (a < b) {
+    return a;
+  }
+
+  return b;
+}
+
 int sum(int *vals, size_t len) {
   size_t i;
   int total = 0;
@@ -846,6 +854,8 @@ size_t get_cmds(arena_t *arena, struct cmd ***cmds_ptr) {
     }
   }
 
+  fclose(fp);
+
   return cmds_len;
 }
 
@@ -1501,6 +1511,150 @@ void day11() {
          simulate_monkeys(monkeys_2, monkeys_size, 10000, 0, mod));
 }
 
+/*** day 12 ***/
+
+#define HEIGHTMAP_FILE "inputs/heightmap"
+#define MAP_WIDTH 81
+#define MAP_HEIGHT 41
+#define SEEN (1 << 0)
+#define VISITED (1 << 1)
+
+int map_char_to_height(char c) {
+  if (c == 'S') {
+    c = 'a';
+  }
+  if (c == 'E') {
+    c = 'z';
+  }
+
+  return c - 'a';
+}
+
+size_t coords_to_index(int x, int y) { return x + y * MAP_WIDTH; }
+
+int *get_map(vec_t *start, vec_t *end) {
+  FILE *fp = fopen(HEIGHTMAP_FILE, "r");
+  int *map = calloc(MAP_WIDTH * MAP_HEIGHT, sizeof(int));
+  size_t i = 0;
+  char c;
+
+  start->x = -1;
+  start->y = -1;
+  end->x = -1;
+  end->y = -1;
+
+  while ((c = fgetc(fp)) != EOF) {
+    int x = i % MAP_WIDTH;
+    int y = i / MAP_WIDTH;
+
+    if (c == '\n') {
+      continue;
+    }
+
+    map[i] = map_char_to_height(c);
+
+    if (c == 'S') {
+      start->x = x;
+      start->y = y;
+    } else if (c == 'E') {
+      end->x = x;
+      end->y = y;
+    }
+
+    i++;
+  }
+
+  fclose(fp);
+
+  assert(start->x != -1 && start->y != -1);
+  assert(end->x != -1 && end->y != -1);
+
+  return map;
+}
+
+int can_move(int from_height, int to_height) {
+  return to_height <= from_height + 1;
+}
+
+void get_distances_from_end(vec_t start, vec_t end, int *map,
+                            int *start_distance, int *shortest_distance) {
+  size_t end_index = coords_to_index(end.x, end.y);
+  int state[MAP_WIDTH * MAP_HEIGHT];
+  int distance[MAP_WIDTH * MAP_HEIGHT];
+  vec_t queue[MAP_WIDTH * MAP_HEIGHT];
+  size_t queue_index;
+  size_t queue_rear = 0;
+  size_t i;
+
+  for (i = 0; i < MAP_WIDTH * MAP_HEIGHT; i++) {
+    state[i] = 0;
+    distance[i] = INT_MAX;
+    queue[i].x = -1;
+    queue[i].y = -1;
+  }
+
+  state[end_index] |= SEEN;
+  distance[end_index] = 0;
+  queue[0] = end;
+  queue_rear++;
+
+  *shortest_distance = INT_MAX;
+
+  for (queue_index = 0; queue_index < MAP_WIDTH * MAP_HEIGHT; queue_index++) {
+    vec_t cur_coords = queue[queue_index];
+    size_t cur_index = coords_to_index(cur_coords.x, cur_coords.y);
+    int cur_height = map[cur_index];
+    size_t dir_index;
+
+    for (dir_index = 0; dir_index < 4; dir_index++) {
+      vec_t next_coords = vec_add(cur_coords, vec_dirs[dir_index]);
+      size_t next_index = coords_to_index(next_coords.x, next_coords.y);
+      char next_height;
+
+      if (next_coords.x < 0 || next_coords.y < 0 ||
+          next_coords.x >= MAP_WIDTH || next_coords.y >= MAP_HEIGHT) {
+        continue;
+      }
+
+      next_height = map[next_index];
+
+      if (state[next_index] & VISITED && can_move(cur_height, next_height)) {
+        /* we know next's distance, might be faster */
+        distance[cur_index] =
+            min(distance[cur_index], distance[next_index] + 1);
+      } else if (!(state[next_index] & SEEN) &&
+                 can_move(next_height, cur_height)) {
+        /* new reachable coord, add to queue */
+        state[next_index] |= SEEN;
+        queue[queue_rear] = next_coords;
+        queue_rear++;
+      }
+    }
+
+    if (cur_height == 0 && *shortest_distance == INT_MAX) {
+      *shortest_distance = distance[cur_index];
+    }
+
+    state[cur_index] |= VISITED;
+  }
+
+  *start_distance = distance[coords_to_index(start.x, start.y)];
+}
+
+void day12() {
+  vec_t start, end;
+  int *map = get_map(&start, &end);
+  int distance_start_to_end;
+  int distance_end_to_a_start;
+
+  get_distances_from_end(start, end, map, &distance_start_to_end,
+                         &distance_end_to_a_start);
+
+  printf("\n=== Day 12 ===\n");
+  printf("Distance to end: %d\n", distance_start_to_end);
+  printf("Shortest distance to end: %d\n", distance_end_to_a_start);
+}
+
 /*** main ***/
 
 int main() {
@@ -1517,6 +1671,7 @@ int main() {
   day9();
   day10();
   day11();
+  day12();
 
   return 0;
 }
