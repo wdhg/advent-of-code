@@ -1,0 +1,5 @@
+-Wall
+-Wextra
+-pedantic
+-std=c2x
+-Ilib/raylib/src

@@ -1,0 +1,17 @@
+---
+BasedOnStyle: LLVM
+UseTab: AlignWithSpaces
+TabWidth: 2
+IndentWidth: 2
+ContinuationIndentWidth: 2
+AlignConsecutiveAssignments: AcrossComments
+AlignConsecutiveBitFields: AcrossComments
+AlignConsecutiveMacros: AcrossComments
+AlignEscapedNewlines: Right
+BinPackParameters: false
+BinPackArguments: false
+SeparateDefinitionBlocks: Always
+AllowShortCaseLabelsOnASingleLine: true
+ColumnLimit: 80
+AllowShortIfStatementsOnASingleLine: WithoutElse
+...
