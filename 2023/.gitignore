@@ -1,1 +1,6 @@
 main
+debug
+.bsp/
+debug.dSYM/
+main.dSYM/
+project/
